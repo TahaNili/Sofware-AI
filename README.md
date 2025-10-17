@@ -1,4 +1,4 @@
-# browser-use-agent-starter
+# Sofware-AI Agent Starter
 
 
 Local starter repo: Use browser-use locally (no cloud) to implement a simple price finder agent.
