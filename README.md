@@ -69,5 +69,3 @@ Example (interactive):
 - Replace free-text extraction with selector-based parsing for each target site to improve reliability.
 - Add rate-limiting and retry/backoff to avoid triggering anti-bot protections.
 - Add unit tests for `planner.py` (mocking the OpenAI response) and for `executor.py` (mocking the Agent) to catch regressions.
-
-If you want, I can: run the quick fixes (CSV write and OpenAI key usage), add a small test, and run them locally. Tell me which changes you want first.
