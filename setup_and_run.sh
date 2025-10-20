@@ -7,7 +7,7 @@ echo "🚀 Starting setup and installation process..."
 
 # Check Python installation
 if ! command -v python &> /dev/null; then
-    echo "❌ Python is not installed. Please install Python 3.7+ first."
+    echo "❌ Python is not installed. Please install Python 3.13+ first."
     exit 1
 fi
 
@@ -34,10 +34,6 @@ python -m pip install --upgrade pip
 # Install dependencies
 echo "📦 Installing dependencies..."
 pip install -r requirements.txt
-
-# Install Playwright browser
-echo "🌐 Installing Chromium for Playwright..."
-python -m playwright install chromium
 
 # Check for .env file
 if [ ! -f ".env" ]; then

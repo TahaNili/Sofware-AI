@@ -26,19 +26,9 @@ call venv\Scripts\activate.bat
 echo 🔄 Upgrading pip...
 python -m pip install --upgrade pip
 
-:: Install dependencies one by one to ensure proper installation
+:: Install dependencies
 echo 📦 Installing dependencies...
-pip install openai==2.5.0
-pip install python-dotenv==1.1.1
-pip install PySide6==6.10.0
-pip install darkdetect==0.8.0
-pip install pywin32==311
-pip install psutil==7.1.1
-pip install pandas==2.1.1
-pip install numpy==1.26.0
-pip install aiohttp==3.9.1
-pip install tqdm==4.66.1
-pip install colorama==0.4.6
+pip install -r requirements.txt
 
 :: Check for .env file
 if not exist .env (
