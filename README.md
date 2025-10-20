@@ -80,6 +80,32 @@ Sofware-AI/
 └── main.py               # Entry point
 ```
 
+## 📋 Development Guidelines
+
+### Mandatory Rules
+
+1. **Immediate Version Control**
+   - Every change must be immediately committed with a detailed English commit message
+   - Changes should be pushed to GitHub right after committing
+   - Commit messages should clearly describe what changed and why
+
+2. **Documentation First**
+   - All new features must be documented in README.md
+   - Update the Features section when adding new functionality
+   - Keep documentation in sync with code changes
+
+3. **Code Cohesion**
+   - All code pieces must be logically related
+   - Maintain clean architecture principles
+   - Regular code reviews to ensure proper code organization
+   - Report any unrelated or poorly organized code immediately
+
+4. **Modularity**
+   - Project must maintain a modular structure
+   - Each module should have a single, well-defined responsibility
+   - Minimize dependencies between modules
+   - Follow the established project structure in the Project Structure section
+
 ## 🤝 Contributing
 
 We welcome your contributions! Please:
@@ -88,6 +114,8 @@ We welcome your contributions! Please:
 2. Create a new branch
 3. Make your changes
 4. Submit a Pull Request
+   - Ensure you follow all Development Guidelines above
+   - Update README.md if adding new features
 
 ## 📄 License
 
