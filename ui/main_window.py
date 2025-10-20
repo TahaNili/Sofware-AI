@@ -1,5 +1,5 @@
 """
-Modern Gemini-like main window implementation using PySide6
+Modern chat-based main window implementation using PySide6
 """
 
 import sys
@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                               QScrollArea, QFrame, QHBoxLayout, QSizePolicy)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QFontDatabase
-from . import styles  # Import our custom styles
+from ui import styles  # Import our custom styles
 from PySide6.QtCore import Qt, Slot, QThread, Signal, QSize
 from PySide6.QtGui import QFont, QIcon, QFontDatabase
 from . import styles  # Import our custom styles
@@ -168,8 +168,8 @@ class MainWindow(QMainWindow):
         """Show system message in chat"""
         self.show_message("سیستم", message)
         
-    def on_send(self):
-        """Handle send button click"""
+    def on_send_sync(self):
+        """Handle send button click (synchronous fallback)"""
         # Get user input
         user_input = self.input_field.toPlainText().strip()
         if not user_input:

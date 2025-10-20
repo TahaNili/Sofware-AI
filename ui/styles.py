@@ -1,9 +1,6 @@
- """
-Modern Gemini-like Qt styling for the application
-"""
+"""Modern and clean Qt styling for the application"""
 
-STYLE = """
-/* Main Window */
+STYLE = """/* Main Window */
 QMainWindow {
     background-color: #ffffff;
 }

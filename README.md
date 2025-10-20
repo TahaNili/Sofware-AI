@@ -4,8 +4,8 @@ An intelligent assistant for Windows OS with a graphical user interface and full
 
 ## ✨ Features
 
-- 🎯 Modern Gemini-like GUI with RTL support
-- 🗨️ Chat-like interface with message history
+- 🎯 Modern and clean GUI with RTL support
+- 🗨️ Professional chat interface with message history
 - 🧠 Advanced AI powered by OpenAI
 - 💻 Ability to control and manage the operating system
 - 🔍 Smart product search and analysis
