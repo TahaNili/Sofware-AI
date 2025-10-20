@@ -1,23 +1,8 @@
 # Core dependencies
-openai==2.5.0
-python-dotenv==1.1.1
-aiohttp==3.9.1
-
-# GUI
-PySide6==6.10.0
-darkdetect==0.8.0
-
-# Windows integration
-pywin32==311
-psutil==7.1.1
-
-# Data handling
-pandas==2.1.1
-numpy==1.26.0
-
-# Async support
-aiohttp==3.9.1
-
-# Utilities
-tqdm==4.66.1
-colorama==0.4.6
+openai>=2.5.0
+python-dotenv>=1.1.1
+aiohttp>=3.9.1
+PySide6>=6.10.0
+darkdetect>=0.8.0
+pywin32>=311
+psutil>=7.1.1
