@@ -4,12 +4,14 @@ An intelligent assistant for Windows OS with a graphical user interface and full
 
 ## ✨ Features
 
-- 🎯 Native Windows GUI with RTL support
+- 🎯 Modern Gemini-like GUI with RTL support
+- 🗨️ Chat-like interface with message history
 - 🧠 Advanced AI powered by OpenAI
 - 💻 Ability to control and manage the operating system
 - 🔍 Smart product search and analysis
 - 📊 System resource monitoring (CPU, RAM, Disk)
-- 🎨 Beautiful and user-friendly interface
+- 🎨 Beautiful and responsive user interface
+- 🔤 Full Persian language support with optimized fonts
 
 ## 🚀 Installation & Setup
 
@@ -75,8 +77,9 @@ Sofware-AI/
 │   ├── planner.py        # AI-powered planning
 │   └── executor.py       # Command execution
 ├── ui/                   # User Interface
-│   ├── main_window.py    # Main window
-│   └── styles/           # Styles
+│   ├── main_window.py    # Modern Gemini-like GUI
+│   ├── styles.py         # Modern UI styling
+│   └── fonts/           # Persian fonts
 └── main.py               # Entry point
 ```
 
@@ -133,5 +136,6 @@ This project is released under the MIT License. For details, see the [LICENSE](L
    - Check your API key
 
 3. **Persian font issue**:
-   - Install Vazir font
-   - Restart Windows
+   - The application will automatically use Vazir font if available
+   - If not available, it will fall back to system fonts with Persian support (Tahoma, Arial, Segoe UI)
+   - For best results, install Vazir font from [Vazir-Font repository](https://github.com/rastikerdar/vazir-font)
