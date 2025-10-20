@@ -43,7 +43,7 @@ if [ ! -f ".env" ]; then
 fi
 
 # Run the application
-echo "🚀 Starting the application..."
-python -m agent.main
+echo "🚀 Starting the modern GUI application..."
+python main.py
 
 echo "✨ Done! Check the output above for any errors."

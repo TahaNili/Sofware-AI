@@ -37,9 +37,9 @@ if not exist .env (
     echo ⚠️ Please edit .env and add your OpenAI API key
 )
 
-:: Run the application
-echo 🚀 Starting the application...
-python -m agent.main
+# Run the application
+echo 🚀 Starting the modern GUI application...
+python main.py
 
 echo ✨ Done! Check the output above for any errors.
 pause
