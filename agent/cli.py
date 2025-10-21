@@ -12,21 +12,22 @@ from agent.planner import analyze_user_request
 
 async def main():
     try:
-        print("سلام! من یک دستیار هوشمند هستم و می‌توانم در موارد مختلف به شما کمک کنم.")
-        print("مثلا می‌توانید درباره:")
-        print("- جستجو و مقایسه قیمت محصولات")
-        print("- تحلیل و بررسی محصولات")
-        print("- پیشنهاد محصولات مشابه")
-        print("- راهنمایی برای خرید")
-        print("- و هر سوال دیگری از من بپرسید!")
+        print("Hello! I'm an intelligent assistant and I can help you with various tasks.")
+        print("For example, you can ask about:")
+        print("- Product search and price comparison")
+        print("- Product analysis and reviews")
+        print("- Similar product recommendations")
+        print("- Shopping guidance")
+        print("- System management and control")
+        print("- Or any other questions you have!")
         
         while True:
             try:
                 # Get user request
-                user_prompt = input("\nلطفا درخواست خود را وارد کنید (یا 'خروج' برای پایان): ")
+                user_prompt = input("\nPlease enter your request (or 'exit' to quit): ")
                 
-                if user_prompt.lower() in ['خروج', 'exit', 'quit']:
-                    print("خدانگهدار!")
+                if user_prompt.lower() in ['exit', 'quit']:
+                    print("Goodbye!")
                     break
                 
                 try:
@@ -37,19 +38,19 @@ async def main():
                     if action_plan['type'] == 'product_search':
                         executor = WebExecutor()
                         results = await executor.execute_search(action_plan['search_params'])
-                        print("\nنتایج جستجو:")
+                        print("\nSearch Results:")
                         for result in results:
-                            print(f"\nمحصول: {result['title']}")
-                            print(f"قیمت: {result['price']}")
-                            print(f"فروشگاه: {result['store']}")
-                            print(f"لینک: {result['url']}")
+                            print(f"\nProduct: {result['title']}")
+                            print(f"Price: {result['price']}")
+                            print(f"Store: {result['store']}")
+                            print(f"Link: {result['url']}")
                             
                     elif action_plan['type'] == 'product_analysis':
-                        print("\nتحلیل محصول:")
+                        print("\nProduct Analysis:")
                         print(action_plan['analysis'])
                         
                     elif action_plan['type'] == 'recommendation':
-                        print("\nپیشنهادات:")
+                        print("\nRecommendations:")
                         for recommendation in action_plan['recommendations']:
                             print(f"- {recommendation}")
                             
@@ -57,8 +58,8 @@ async def main():
                         print(f"\n{action_plan['response']}")
                     
                 except Exception as e:
-                    print(f"\nمتأسفانه مشکلی پیش آمد: {str(e)}")
-                    print("لطفاً دوباره تلاش کنید.")
+                    print(f"\nSorry, an error occurred: {str(e)}")
+                    print("Please try again.")
                     continue
                     
             except EOFError:
