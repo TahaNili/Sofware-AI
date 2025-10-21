@@ -19,7 +19,9 @@ An intelligent assistant for Windows OS with a graphical user interface and full
 
 - Python 3.13 or higher
 - Windows 10/11
-- Valid OpenAI API key
+- Either:
+  - Valid Google API key for Gemini (Recommended, Free)
+  - Valid OpenAI API key (Optional)
 
 ### Installation Steps
 
@@ -29,12 +31,17 @@ git clone https://github.com/TahaNili/Sofware-AI.git
 cd Sofware-AI
 ```
 
-2. Configure OpenAI key:
+2. Configure AI Provider:
 - Create a `.env` file in the project root
-- Add your API key:
+- Add your API key(s):
 ```env
-OPENAI_API_KEY=your_api_key_here
+# For Google Gemini (Recommended, Free)
+GOOGLE_API_KEY=your_google_api_key_here
+
+# For OpenAI (Optional)
+OPENAI_API_KEY=your_openai_api_key_here
 ```
+Note: You only need to set one of the API keys. The application will automatically use Gemini if `GOOGLE_API_KEY` is set.
 
 3. Run the setup script:
 - Open PowerShell as Administrator
