@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QComboBox, QStackedWidget
 )
 from PySide6.QtCore import Qt, Slot, QThread, Signal, QSize, QTimer
-from PySide6.QtGui import QFont, QFontDatabase, QIcon
+from PySide6.QtGui import QFont, QFontDatabase, QIcon, QTextCursor
 from . import styles
 import asyncio
 class WorkerThread(QThread):
@@ -25,13 +25,18 @@ class WorkerThread(QThread):
         super().__init__()
         self.agent = agent
         self.command: Optional[str] = None
+        self._result = None
 
     def run(self) -> None:
         try:
             if self.command is None:
                 self.progress.emit("There are no commands to execute.")
                 return
-            result = self.agent.process_command(self.command)
+            # agent.process_request is async; run it in this thread's context
+            try:
+                result = asyncio.run(self.agent.process_request(self.command))
+            except Exception as e:
+                result = {"type": "error", "error": str(e)}
             self.finished.emit(result)
         except Exception as e:
             self.progress.emit(f"error: {str(e)}")
@@ -164,6 +169,13 @@ class MainWindow(QMainWindow):
         self.input_field.setObjectName("messageInput")
         self.input_field.setPlaceholderText("پیام خود را اینجا بنویسید...")
         self.input_field.setAcceptRichText(False)
+        cursor = self.input_field.textCursor()
+        # move to end using the QTextCursor enum constant
+        cursor.movePosition(QTextCursor.End)
+        block_fmt = cursor.blockFormat()
+        block_fmt.setAlignment(Qt.AlignmentFlag.AlignRight)
+        cursor.mergeBlockFormat(block_fmt)
+        self.input_field.setTextCursor(cursor)
         
         # Send button
         self.send_button = QPushButton("ارسال")
@@ -184,57 +196,7 @@ class MainWindow(QMainWindow):
         self.status_bar.setMaximumHeight(2)
         return self.status_bar
 
-        # Add welcome message
-        welcome_text = """سلام! 👋\nمن دستیار هوشمند شما هستم و می‌توانم در موارد مختلف به شما کمک کنم.\n\nمی‌توانید از من بپرسید:\n• جستجو و مقایسه قیمت محصولات\n• تحلیل و بررسی محصولات\n• پیشنهاد محصولات مشابه\n• راهنمایی برای خرید\n• مدیریت سیستم و برنامه‌ها\n\nهر سؤالی دارید، با خیال راحت بپرسید! 😊"""
-        self.show_message("سیستم", welcome_text)
         
-        # Scroll area for chat
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        
-        # Chat container
-        chat_container = QWidget()
-        self.chat_layout = QVBoxLayout(chat_container)
-        self.chat_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.chat_layout.setSpacing(20)
-        scroll_area.setWidget(chat_container)
-        main_layout.addWidget(scroll_area)
-        
-        # Bottom panel for input
-        bottom_panel = QWidget()
-        bottom_layout = QHBoxLayout(bottom_panel)
-        bottom_layout.setContentsMargins(0, 10, 0, 10)
-        
-        # Message input
-        self.input_field = QTextEdit()
-        self.input_field.setObjectName("messageInput")
-        self.input_field.setMaximumHeight(100)
-        self.input_field.setPlaceholderText("پیام خود را اینجا بنویسید...")
-        
-        # Send button
-        self.send_button = QPushButton("ارسال")
-        self.send_button.setObjectName("sendButton")
-        self.send_button.clicked.connect(self.on_send)
-        self.send_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        
-        # Add input and button to bottom panel
-        bottom_layout.addWidget(self.input_field)
-        bottom_layout.addWidget(self.send_button)
-        main_layout.addWidget(bottom_panel)
-        
-        # Progress bar for loading state
-        self.status_bar = QProgressBar()
-        self.status_bar.setTextVisible(False)
-        self.status_bar.setMaximumHeight(2)
-        main_layout.addWidget(self.status_bar)
-        
-        # Worker thread setup
-        self.worker = None
-        
-        # Add welcome message
-        welcome_text = """سلام! 👋\nمن دستیار هوشمند شما هستم و می‌توانم در موارد مختلف به شما کمک کنم.\n\nمی‌توانید از من بپرسید:\n• جستجو و مقایسه قیمت محصولات\n• تحلیل و بررسی محصولات\n• پیشنهاد محصولات مشابه\n• راهنمایی برای خرید\n• مدیریت سیستم و برنامه‌ها\n\nهر سؤالی دارید، با خیال راحت بپرسید! 😊"""
-        self.show_message("سیستم", welcome_text)
 
     def update_model_list(self):
         """Update available models based on selected provider"""
@@ -343,36 +305,12 @@ class MainWindow(QMainWindow):
         
         # Disable input during processing
         self.set_input_enabled(False)
-        
-        # Create and start async task
-        async def process_message():
-            try:
-                # Process request
-                response = await self.agent.process_request(user_input)
-                
-                # Handle different response types
-                if isinstance(response, dict):
-                    if response.get('error'):
-                        self.show_error(str(response['error']))
-                    elif response.get('response'):
-                        self.show_message("سیستم", str(response['response']))
-                    elif response.get('analysis'):
-                        self.show_message("تحلیل", str(response['analysis']))
-                    elif response.get('recommendations'):
-                        recommendations = response.get('recommendations', [])
-                        if isinstance(recommendations, list):
-                            self.show_message("پیشنهادات", "\n".join(map(str, recommendations)))
-                        else:
-                            self.show_message("پیشنهادات", str(recommendations))
-                elif response is not None:
-                    self.show_message("سیستم", str(response))
-            except Exception as e:
-                self.show_error(f"خطا در پردازش درخواست: {str(e)}")
-            finally:
-                self.set_input_enabled(True)
-        
-        # Run async task
-        asyncio.ensure_future(process_message())
+        # Create a worker thread to run the agent call (runs asyncio in thread)
+        self.worker = WorkerThread(self.agent)
+        self.worker.command = user_input
+        self.worker.finished.connect(self._on_worker_finished)
+        self.worker.progress.connect(self._on_worker_progress)
+        self.worker.start()
 
     @Slot(dict)
     def on_result(self, result: dict):
@@ -385,3 +323,35 @@ class MainWindow(QMainWindow):
     def on_progress(self, message: str):
         """نمایش پیشرفت عملیات"""
         self.add_message("سیستم", message)
+
+    def _on_worker_progress(self, message: str):
+        # Show progress messages in the UI
+        self.show_system_message(message)
+
+    def _on_worker_finished(self, result: dict):
+        # Handle worker result and re-enable inputs
+        try:
+            if isinstance(result, dict):
+                if result.get('error'):
+                    self.show_error(str(result['error']))
+                elif result.get('response'):
+                    self.show_message('سیستم', str(result['response']))
+                elif result.get('analysis'):
+                    self.show_message('تحلیل', str(result['analysis']))
+                elif result.get('recommendations'):
+                    recommendations = result.get('recommendations', [])
+                    if isinstance(recommendations, list):
+                        self.show_message('پیشنهادات', '\n'.join(map(str, recommendations)))
+                    else:
+                        self.show_message('پیشنهادات', str(recommendations))
+                elif result.get('type') == 'product_search' and result.get('search_params'):
+                    # For product search, delegate to executor via planner or executor
+                    search_params = result.get('search_params', {})
+                    self.show_message('سیستم', str(search_params.get('response', ''))) 
+                else:
+                    # Fallback: show the whole result
+                    self.show_message('سیستم', str(result))
+            else:
+                self.show_message('سیستم', str(result))
+        finally:
+            self.set_input_enabled(True)
