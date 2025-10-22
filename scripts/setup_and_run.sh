@@ -35,11 +35,16 @@ python -m pip install --upgrade pip
 echo "📦 Installing dependencies..."
 pip install -r requirements.txt
 
-# Check for .env file
+# Check for .env file and copy from .env.example if needed
 if [ ! -f ".env" ]; then
-    echo "⚠️ Creating .env file..."
-    echo "OPENAI_API_KEY=" > .env
-    echo "⚠️ Please edit .env and add your OpenAI API key"
+    echo "⚠️ .env file not found. Creating from .env.example..."
+    cp .env.example .env
+else
+    # Check if .env is empty
+    if [ ! -s ".env" ]; then
+        echo "⚠️ .env file is empty. Copying contents from .env.example..."
+        cp .env.example .env
+    fi
 fi
 
 # Run the application

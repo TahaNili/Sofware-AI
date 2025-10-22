@@ -30,14 +30,19 @@ python -m pip install --upgrade pip
 echo 📦 Installing dependencies...
 pip install -r requirements.txt
 
-:: Check for .env file
+::: Check for .env file and copy from .env.example if needed
 if not exist .env (
-    echo ⚠️ Creating .env file...
-    echo OPENAI_API_KEY= > .env
-    echo ⚠️ Please edit .env and add your OpenAI API key
+    echo ⚠️ .env file not found. Creating from .env.example...
+    copy .env.example .env
+) else (
+    :: Check if .env is empty
+    for %%I in (.env) do if %%~zI==0 (
+        echo ⚠️ .env file is empty. Copying contents from .env.example...
+        copy .env.example .env
+    )
 )
 
-# Run the application
+:: Run the application
 echo 🚀 Starting the modern GUI application...
 python main.py
 

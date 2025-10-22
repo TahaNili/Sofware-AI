@@ -30,7 +30,7 @@ async def analyze_user_request(user_prompt: str) -> Dict:
     # Check for API key in environment variables
     api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
-        raise ValueError("کلید API برای OpenAI یافت نشد. لطفاً OPENAI_API_KEY را در متغیرهای محیطی تنظیم کنید")
+        raise ValueError("API key for OpenAI not found. Please set OPENAI_API_KEY in environment variables")
     
     # Create temporary OpenAI client
     client = AsyncOpenAI(api_key=api_key)
