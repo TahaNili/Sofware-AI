@@ -3,11 +3,14 @@ Main entry point of the application
 """
 
 import sys
+from dotenv import load_dotenv
 from PySide6.QtWidgets import QApplication
 from ui.main_window import MainWindow
-from agent.planner import analyze_user_request
 from agent.windows.system import WindowsController
 from agent.ai.factory import AIFactory
+
+# Load environment variables from .env early so factory and clients see them
+load_dotenv()
 
 def agent_factory(provider=None, model=None):
     # This function can create the appropriate agent based on provider/model

@@ -8,7 +8,7 @@ This module is the main entry point of the application that:
 
 import asyncio
 from agent.executor import WebExecutor
-from agent.planner import analyze_user_request
+from agent.ai.factory import AIFactory
 
 async def main():
     try:
@@ -31,31 +31,39 @@ async def main():
                     break
                 
                 try:
-                    # Analyze user request and determine appropriate action
-                    action_plan = await analyze_user_request(user_prompt)
-                    
-                    # Execute appropriate operation based on request type
-                    if action_plan['type'] == 'product_search':
-                        executor = WebExecutor()
-                        results = await executor.execute_search(action_plan['search_params'])
-                        print("\nSearch Results:")
-                        for result in results:
-                            print(f"\nProduct: {result['title']}")
-                            print(f"Price: {result['price']}")
-                            print(f"Store: {result['store']}")
-                            print(f"Link: {result['url']}")
-                            
-                    elif action_plan['type'] == 'product_analysis':
-                        print("\nProduct Analysis:")
-                        print(action_plan['analysis'])
-                        
-                    elif action_plan['type'] == 'recommendation':
-                        print("\nRecommendations:")
-                        for recommendation in action_plan['recommendations']:
-                            print(f"- {recommendation}")
-                            
-                    elif action_plan['type'] == 'general_response':
-                        print(f"\n{action_plan['response']}")
+                    # Use the AI factory to get a client (mock if no keys)
+                    client = AIFactory.create_client()
+                    # Let the client process the request
+                    response = await client.process_request(user_prompt)
+
+                    # Normalize response dicts
+                    if isinstance(response, dict):
+                        rtype = response.get('type')
+                        if rtype == 'product_search' and 'search_params' in response:
+                            executor = WebExecutor()
+                            results = await executor.execute_search(response['search_params'])
+                            print("\nSearch Results:")
+                            for result in results:
+                                print(f"\nProduct: {result['title']}")
+                                print(f"Price: {result['price']}")
+                                print(f"Store: {result['store']}")
+                                print(f"Link: {result['url']}")
+                        elif rtype == 'product_analysis' and 'analysis' in response:
+                            print("\nProduct Analysis:")
+                            print(response['analysis'])
+                        elif rtype == 'recommendation' and 'recommendations' in response:
+                            print("\nRecommendations:")
+                            for recommendation in response['recommendations']:
+                                print(f"- {recommendation}")
+                        elif rtype == 'general_response' and 'response' in response:
+                            print(f"\n{response['response']}")
+                        elif response.get('error'):
+                            print(f"\nSorry, an error occurred: {response.get('error')}")
+                        else:
+                            # Fallback: print the whole dict
+                            print("\n", response)
+                    else:
+                        print("\n", str(response))
                     
                 except Exception as e:
                     print(f"\nSorry, an error occurred: {str(e)}")
@@ -63,17 +71,17 @@ async def main():
                     continue
                     
             except EOFError:
-                print("\nبرنامه به طور غیرمنتظره پایان یافت.")
+                print("\nThe program ended unexpectedly.")
                 break
             except KeyboardInterrupt:
-                print("\nبرنامه توسط کاربر متوقف شد.")
+                print("\nThe program was stopped by the user.")
                 break
             except Exception as e:
-                print(f"\nخطایی رخ داد: {str(e)}")
+                print(f"\nAn error occurred: {str(e)}")
                 continue
                 
     except Exception as e:
-        print(f"خطای اصلی: {str(e)}")
+        print(f"Main error: {str(e)}")
         return 1
     
     return 0

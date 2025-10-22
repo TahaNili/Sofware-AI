@@ -185,25 +185,12 @@ QProgressBar::chunk {
     background-color: #1a73e8;
 }
 
-/* RTL Support */
-QMainWindow[layoutDirection="RightToLeft"] QLabel,
-QMainWindow[layoutDirection="RightToLeft"] QTextEdit,
-QMainWindow[layoutDirection="RightToLeft"] QPushButton {
-    text-align: right;
-}
+/* RTL Support - Use Qt Specific Properties */
+/* RTL: alignments are handled in code (QLabel/QTextEdit alignment set via setAlignment or block format).
+   Avoid qproperty-alignment for QTextEdit as it is not exposed as a stylesheet property and
+   can emit runtime warnings. Layout direction is set in code as well. */
 
-/* Responsive Adjustments */
-@media (max-width: 800px) {
-    QWidget#headerPanel {
-        padding: 8px;
-    }
-    
-    QWidget#messageContainer {
-        margin: 4px 8px;
-    }
-    
-    QTextEdit#messageInput {
-        margin-right: 8px;
-    }
+QMainWindow, QWidget {
+    qproperty-layoutDirection: RightToLeft;
 }
 """
