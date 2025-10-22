@@ -6,6 +6,7 @@ import os
 from typing import Optional
 from .openai_client import OpenAIClient
 from .gemini_client import GeminiClient
+from .mock_client import MockClient
 
 class AIFactory:
     """Factory class to create appropriate AI client based on configuration"""
@@ -26,4 +27,5 @@ class AIFactory:
             return OpenAIClient()
         
         else:
-            raise ValueError("No API key found for any AI provider. Please set either GOOGLE_API_KEY or OPENAI_API_KEY in your .env file")
+            # Fall back to a mock client for local dev/testing when no API keys are set
+            return MockClient()
