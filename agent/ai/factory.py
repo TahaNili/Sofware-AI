@@ -59,7 +59,7 @@ class AIFactory:
         if provider == 'gemini' or (provider is None and os.getenv('GOOGLE_API_KEY')):
             try:
                 from .gemini_client import GeminiClient
-                return GeminiClient(model=model)
+                return GeminiClient(model)
             except Exception:
                 # Fallthrough to try OpenAI or Mock
                 pass
@@ -68,7 +68,17 @@ class AIFactory:
         if provider == 'openai' or (provider is None and os.getenv('OPENAI_API_KEY')):
             try:
                 from .openai_client import OpenAIClient
-                return OpenAIClient(model=model)
+                # OpenAIClient expects no positional arguments; create instance first
+                client = OpenAIClient()
+                # If a model was provided, try to configure the client with it.
+                # Prefer a setter method if available, otherwise fall back to setting an attribute.
+                if model is not None:
+                    setter = getattr(client, 'set_model', None)
+                    if callable(setter):
+                        setter(model)
+                    else:
+                        setattr(client, 'model', model)
+                return client
             except Exception:
                 pass
 

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QComboBox, QStackedWidget
 )
 from PySide6.QtCore import Qt, Slot, QThread, Signal, QSize, QTimer
-from PySide6.QtGui import QFont, QFontDatabase, QIcon, QTextCursor
+from PySide6.QtGui import QFont, QFontDatabase, QIcon, QTextCursor, Qt as QtGui
 from . import styles
 import asyncio
 class WorkerThread(QThread):
@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
         self.input_field.setAcceptRichText(False)
         cursor = self.input_field.textCursor()
         # move to end using the QTextCursor enum constant
-        cursor.movePosition(QTextCursor.End)
+        cursor.movePosition(QTextCursor.MoveOperation.End)
         block_fmt = cursor.blockFormat()
         block_fmt.setAlignment(Qt.AlignmentFlag.AlignRight)
         cursor.mergeBlockFormat(block_fmt)
@@ -365,12 +365,12 @@ class MainWindow(QMainWindow):
         """نمایش نتیجه"""
         self.status_bar.setMaximum(100)
         self.status_bar.setValue(100)
-        self.add_message("سیستم", str(result))
+        self.show_message("سیستم", str(result))
 
     @Slot(str)
     def on_progress(self, message: str):
         """نمایش پیشرفت عملیات"""
-        self.add_message("سیستم", message)
+        self.show_message("سیستم", message)
 
     def _on_worker_progress(self, message: str):
         # Show progress messages in the UI

@@ -7,6 +7,7 @@ This module is the main entry point of the application that:
 """
 
 import asyncio
+import inspect
 from agent.executor import WebExecutor
 from agent.ai.factory import AIFactory
 
@@ -29,12 +30,15 @@ async def main():
                 if user_prompt.lower() in ['exit', 'quit']:
                     print("Goodbye!")
                     break
-                
                 try:
                     # Use the AI factory to get a client (mock if no keys)
                     client = AIFactory.create_client()
-                    # Let the client process the request
-                    response = await client.process_request(user_prompt)
+                    # Let the client process the request (support sync and async clients)
+                    resp_candidate = client.process_request(user_prompt)
+                    if asyncio.iscoroutine(resp_candidate) or inspect.isawaitable(resp_candidate):
+                        response = await resp_candidate
+                    else:
+                        response = resp_candidate
 
                     # Normalize response dicts
                     if isinstance(response, dict):

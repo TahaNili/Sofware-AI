@@ -28,7 +28,10 @@ class GeminiClient:
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment variables")
 
-        genai.configure(api_key=api_key)
+        # Some versions of the google.generativeai package do not export a
+        # `configure` function; ensure the API key is available via environment
+        # variable so the SDK can read it.
+        os.environ["GOOGLE_API_KEY"] = api_key
         self.model_name = model or os.getenv("GEMINI_MODEL") or "gemini-pro"
 
     def _extract_text(self, raw: Any) -> str:
@@ -78,7 +81,37 @@ class GeminiClient:
         `recommendation`, `general_response` and `error`.
         """
         try:
-            raw = genai.generate(model=self.model_name, input=prompt)
+            # Create model instance and generate response using multiple SDK shapes
+            raw = None
+            try:
+                # Preferred: genai.GenerativeModel (some versions); may not be present.
+                GenModel = getattr(genai, "GenerativeModel", None)
+                if GenModel:
+                    model = GenModel(self.model_name)
+                    if hasattr(model, "generate_content"):
+                        raw = model.generate_content(prompt)
+
+                # Fallback: genai.Client or TextGenerationClient
+                if not raw:
+                    ClientClass = getattr(genai, "Client", None) or getattr(genai, "TextGenerationClient", None)
+                    if ClientClass:
+                        client = ClientClass()
+                        if hasattr(client, "generate"):
+                            raw = client.generate(model=self.model_name, input=prompt)
+                        elif hasattr(client, "text_generation") and hasattr(client.text_generation, "generate"):
+                            raw = client.text_generation.generate(model=self.model_name, input=prompt)
+
+                # Fallback: genai.responses.generate
+                if not raw:
+                    responses = getattr(genai, "responses", None)
+                    if responses and hasattr(responses, "generate"):
+                        raw = responses.generate(model=self.model_name, input=prompt)
+            except Exception:
+                raw = None
+
+            if raw is None:
+                raise RuntimeError("Failed to call generation API: 'generate' method not found on google.generativeai")
+
             response_text = self._extract_text(raw)
 
             lprompt = prompt.lower()
