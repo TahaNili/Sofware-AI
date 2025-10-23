@@ -1,67 +1,99 @@
-"""
-Google Gemini AI client implementation
+"""Google Gemini AI client implementation
+
+This module provides a small wrapper around the `google.generativeai`
+library. It normalizes the client interface for the application and
+attempts to safely extract text from multiple response shapes.
 """
 
 import os
-import google.generativeai as genai
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
+import google.generativeai as genai
+
+
 class GeminiClient:
-    """Google Gemini AI client for processing requests"""
-    
-    def __init__(self):
-        """Initialize the Gemini client"""
+    """Google Gemini AI client for processing requests.
+
+    Args:
+        model: Optional model name override. If not provided the
+            `GEMINI_MODEL` environment variable is used or the
+            default `gemini-pro`.
+    """
+
+    def __init__(self, model: Optional[str] = None):
         load_dotenv()
-        
-        # Configure Gemini
+
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment variables")
-        
+
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
-        
-    async def process_request(self, prompt: str) -> Dict[str, Any]:
-        """Process a user request using Gemini AI
-        
-        Args:
-            prompt: User's request text
-            
-        Returns:
-            Dictionary containing the response and action type
+        self.model_name = model or os.getenv("GEMINI_MODEL") or "gemini-pro"
+
+    def _extract_text(self, raw: Any) -> str:
+        """Attempt to extract a text string from different response shapes."""
+        if raw is None:
+            return ""
+
+        # If the response is a mapping/dict prefer common keys
+        try:
+            if isinstance(raw, dict):
+                for key in ("output", "text", "content", "candidates"):
+                    if key in raw and raw[key]:
+                        val = raw[key]
+                        if isinstance(val, list):
+                            # Join candidate items if they're dicts or simple strings
+                            parts = []
+                            for item in val:
+                                if isinstance(item, dict):
+                                    parts.append(str(item.get("content") or item.get("text") or ""))
+                                else:
+                                    parts.append(str(item))
+                            return "\n".join(p for p in parts if p)
+                        return str(val)
+
+            # Otherwise try common attributes on returned objects
+            for attr in ("text", "output", "content"):
+                val = getattr(raw, attr, None)
+                if val:
+                    if isinstance(val, list):
+                        return "\n".join(str(v) for v in val if v)
+                    return str(val)
+        except Exception:
+            # If extraction fails, fall back to string conversion
+            pass
+
+        try:
+            return str(raw)
+        except Exception:
+            return ""
+
+    def process_request(self, prompt: str) -> Dict[str, Any]:
+        """Process a user request with Gemini and return a structured dict.
+
+        The return value is a dictionary containing a `type` key which
+        indicates how the UI/agent should handle the response. Possible
+        types include: `product_search`, `product_analysis`,
+        `recommendation`, `general_response` and `error`.
         """
         try:
-            # Generate response
-            response = await self.model.generate_content_async(prompt)
-            
-            # Determine action type based on content
-            if any(keyword in prompt.lower() for keyword in ['price', 'cost', 'buy', 'purchase']):
+            raw = genai.generate(model=self.model_name, input=prompt)
+            response_text = self._extract_text(raw)
+
+            lprompt = prompt.lower()
+            if any(k in lprompt for k in ("price", "cost", "buy", "purchase")):
                 return {
-                    'type': 'product_search',
-                    'search_params': {
-                        'query': prompt,
-                        'response': response.text
-                    }
+                    "type": "product_search",
+                    "search_params": {"query": prompt, "response": response_text},
                 }
-            elif any(keyword in prompt.lower() for keyword in ['analyze', 'review', 'compare']):
-                return {
-                    'type': 'product_analysis',
-                    'analysis': response.text
-                }
-            elif any(keyword in prompt.lower() for keyword in ['recommend', 'suggest', 'alternative']):
-                return {
-                    'type': 'recommendation',
-                    'recommendations': [r.strip() for r in response.text.split('\n') if r.strip()]
-                }
-            else:
-                return {
-                    'type': 'general_response',
-                    'response': response.text
-                }
-                
-        except Exception as e:
-            return {
-                'type': 'error',
-                'error': str(e)
-            }
+            if any(k in lprompt for k in ("analyze", "review", "compare")):
+                return {"type": "product_analysis", "analysis": response_text}
+            if any(k in lprompt for k in ("recommend", "suggest", "alternative")):
+                recommendations = [r.strip() for r in response_text.splitlines() if r.strip()]
+                return {"type": "recommendation", "recommendations": recommendations}
+
+            return {"type": "general_response", "response": response_text}
+
+        except Exception as exc:  # pragma: no cover - runtime errors
+            return {"type": "error", "error": str(exc)}
