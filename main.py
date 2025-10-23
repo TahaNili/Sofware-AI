@@ -12,16 +12,11 @@ from agent.ai.factory import AIFactory
 # Load environment variables from .env early so factory and clients see them
 load_dotenv()
 
-def agent_factory(provider=None, model=None):
-    # This function can create the appropriate agent based on provider/model
-    # For now: just uses AIFactory
-    return AIFactory.create_client()
-
 def main():
     # Create Qt application
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
-    window = MainWindow(agent_factory=agent_factory)
+    window = MainWindow(agent_factory=AIFactory)
     window.show()
     sys.exit(app.exec())
 

@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
         
         # Initialize core components
         self.agent_factory = agent_factory
-        self.agent = self.agent_factory()
+        self.agent = self.agent_factory.create_client()
         self.messages: List[Dict] = []
         self.worker = None
         self.setup_window()
@@ -109,17 +109,27 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(16)
         
-        # AI Provider selection
-        provider_label = QLabel("مدل هوش مصنوعی:")
+        # AI Provider selection with status
+        provider_label = QLabel("سرویس هوش مصنوعی:")
         self.provider_combo = QComboBox()
-        self.provider_combo.addItem("Google Gemini", "gemini")
-        self.provider_combo.addItem("OpenAI", "openai")
+        
+        # Get available providers from factory
+        providers = self.agent_factory.get_available_providers()
+        for display_name, provider_id in providers:
+            self.provider_combo.addItem(display_name, provider_id)
+            
         self.provider_combo.currentIndexChanged.connect(self.on_provider_changed)
         
-        # Model selection
+        # Model selection with tooltip
         model_label = QLabel("نوع مدل:")
         self.model_combo = QComboBox()
+        self.model_combo.setToolTip("مدل‌های در دسترس بر اساس کلید API انتخاب می‌شوند")
         self.update_model_list()
+        
+        # API Status indicator
+        self.api_status = QLabel()
+        self.api_status.setObjectName("apiStatus")
+        self.update_api_status()
         
         # CLI Button (right-aligned)
         self.cli_button = QPushButton("اجرا در خط فرمان")
@@ -131,6 +141,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.provider_combo)
         layout.addWidget(model_label)
         layout.addWidget(self.model_combo)
+        layout.addWidget(self.api_status)
         layout.addStretch()
         layout.addWidget(self.cli_button)
         
@@ -198,21 +209,58 @@ class MainWindow(QMainWindow):
 
         
 
+    def update_api_status(self):
+        """Update the API status indicator based on available keys"""
+        provider = self.provider_combo.currentData()
+        
+        # Set initial loading state
+        self.api_status.setText("در حال بررسی...")
+        self.api_status.setProperty("status", "loading")
+        self.api_status.style().unpolish(self.api_status)
+        self.api_status.style().polish(self.api_status)
+        
+        # Check API key status
+        has_key = False
+        if provider == "gemini":
+            has_key = bool(os.getenv('GOOGLE_API_KEY'))
+        elif provider == "openai":
+            has_key = bool(os.getenv('OPENAI_API_KEY'))
+        else:
+            has_key = True  # Mock client always available
+            
+        # Update status after a small delay to show loading state
+        QTimer.singleShot(500, lambda: self._update_api_status_ui(has_key))
+        
+    def _update_api_status_ui(self, has_key: bool):
+        """Update API status UI elements"""
+        if has_key:
+            self.api_status.setText("✓ متصل")
+            self.api_status.setProperty("status", "available")
+        else:
+            self.api_status.setText("⚠️ کلید API یافت نشد")
+            self.api_status.setProperty("status", "unavailable")
+        
+        # Force style refresh
+        self.api_status.style().unpolish(self.api_status)
+        self.api_status.style().polish(self.api_status)
+        
     def update_model_list(self):
         """Update available models based on selected provider"""
         provider = self.provider_combo.currentData()
         self.model_combo.clear()
         
-        if provider == "gemini":
-            self.model_combo.addItems(["gemini-pro", "gemini-1.5-pro"])
-        else:
-            self.model_combo.addItems(["gpt-3.5-turbo", "gpt-4"])
+        # Get models from factory
+        models = self.agent_factory.get_models(provider)
+        self.model_combo.addItems(models)
+        
+        # Update API status
+        self.update_api_status()
             
     def on_provider_changed(self):
         """Handle AI provider change"""
         self.update_model_list()
         provider = self.provider_combo.currentData()
-        self.agent = self.agent_factory(
+        self.agent = self.agent_factory.create_client(
             provider=provider,
             model=self.model_combo.currentText()
         )
