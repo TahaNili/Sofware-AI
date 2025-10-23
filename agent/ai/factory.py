@@ -13,6 +13,33 @@ from typing import Optional
 class AIFactory:
     """Factory class to create appropriate AI client based on configuration"""
 
+    # Available models by provider
+    MODELS = {
+        'gemini': [
+            'gemini-2.5-flash'
+        ],
+        'openai': [
+            'gpt-oss-120b'
+        ],
+    }
+
+    @staticmethod
+    def get_available_providers():
+        """Return list of available providers based on API keys"""
+        providers = []
+        if os.getenv('GOOGLE_API_KEY'):
+            providers.append(('Google Gemini', 'gemini'))
+        if os.getenv('OPENAI_API_KEY'):
+            providers.append(('OpenAI', 'openai'))
+        if not providers:
+            providers.append(('Local Test', 'mock'))
+        return providers
+
+    @staticmethod
+    def get_models(provider: str) -> list:
+        """Get available models for a provider"""
+        return AIFactory.MODELS.get(provider, ['mock-model'])
+
     @staticmethod
     def create_client(provider: Optional[str] = None, model: Optional[str] = None):
         """Create and return appropriate AI client based on environment variables or args.
@@ -32,7 +59,7 @@ class AIFactory:
         if provider == 'gemini' or (provider is None and os.getenv('GOOGLE_API_KEY')):
             try:
                 from .gemini_client import GeminiClient
-                return GeminiClient()
+                return GeminiClient(model=model)
             except Exception:
                 # Fallthrough to try OpenAI or Mock
                 pass
@@ -41,7 +68,7 @@ class AIFactory:
         if provider == 'openai' or (provider is None and os.getenv('OPENAI_API_KEY')):
             try:
                 from .openai_client import OpenAIClient
-                return OpenAIClient()
+                return OpenAIClient(model=model)
             except Exception:
                 pass
 

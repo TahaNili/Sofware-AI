@@ -24,6 +24,33 @@ QWidget#headerPanel {
     margin: 0;
 }
 
+/* API Status Indicator */
+QLabel#apiStatus {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    min-width: 80px;
+    text-align: center;
+}
+
+QLabel#apiStatus[status="available"] {
+    background-color: #e6f4ea;
+    color: #1e8e3e;
+    border: 1px solid #1e8e3e;
+}
+
+QLabel#apiStatus[status="unavailable"] {
+    background-color: #fce8e6;
+    color: #d93025;
+    border: 1px solid #d93025;
+}
+
+QLabel#apiStatus[status="loading"] {
+    background-color: #e8f0fe;
+    color: #1a73e8;
+    border: 1px solid #1a73e8;
+}
+
 QComboBox {
     background-color: #f8f9fa;
     border: 1px solid #dadce0;
