@@ -26,13 +26,25 @@ class AIFactory:
     @staticmethod
     def get_available_providers():
         """Return list of available providers based on API keys"""
+        from utils.logger import logger
         providers = []
-        if os.getenv('GOOGLE_API_KEY'):
+        
+        google_key = os.getenv('GOOGLE_API_KEY')
+        openai_key = os.getenv('OPENAI_API_KEY')
+        
+        logger.info(f"Checking API Keys - Google: {'Available' if google_key else 'Not found'}, OpenAI: {'Available' if openai_key else 'Not found'}")
+        
+        if google_key:
+            logger.info("Adding Google Gemini provider")
             providers.append(('Google Gemini', 'gemini'))
-        if os.getenv('OPENAI_API_KEY'):
+        if openai_key:
+            logger.info("Adding OpenAI provider")
             providers.append(('OpenAI', 'openai'))
         if not providers:
+            logger.warning("No API keys found, falling back to mock provider")
             providers.append(('Local Test', 'mock'))
+        
+        logger.info(f"Available providers: {[p[0] for p in providers]}")
         return providers
 
     @staticmethod

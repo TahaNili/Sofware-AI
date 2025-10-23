@@ -22,10 +22,22 @@ class GeminiClient:
     """
 
     def __init__(self, model: Optional[str] = None):
-        load_dotenv()
+        from utils.logger import logger
+        logger.info("Initializing Gemini client...")
+        
+        # Try to load .env file
+        dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+        logger.info(f"Looking for .env file at: {dotenv_path}")
+        if os.path.exists(dotenv_path):
+            logger.info(".env file found, loading...")
+            load_dotenv(dotenv_path)
+        else:
+            logger.warning(f".env file not found at {dotenv_path}")
+            load_dotenv()  # Try default locations
 
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
+            logger.error("GOOGLE_API_KEY not found in environment variables after loading .env")
             raise ValueError("GOOGLE_API_KEY not found in environment variables")
 
         # Some versions of the google.generativeai package do not export a

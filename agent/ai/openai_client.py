@@ -10,9 +10,22 @@ from dotenv import load_dotenv
 class OpenAIClient:
     """Client for interacting with OpenAI models"""
     def __init__(self):
-        load_dotenv()
+        from utils.logger import logger
+        logger.info("Initializing OpenAI client...")
+        
+        # Try to load .env file
+        dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+        logger.info(f"Looking for .env file at: {dotenv_path}")
+        if os.path.exists(dotenv_path):
+            logger.info(".env file found, loading...")
+            load_dotenv(dotenv_path)
+        else:
+            logger.warning(f".env file not found at {dotenv_path}")
+            load_dotenv()  # Try default locations
+
         self.api_key = os.getenv("OPENAI_API_KEY")
         if not self.api_key:
+            logger.error("OPENAI_API_KEY not found in environment variables after loading .env")
             raise ValueError("OPENAI_API_KEY not found in environment variables")
         # Prefer the new OpenAI client when available (OpenAI Python SDK v1+),
         # otherwise fall back to setting the global api_key for older versions.
