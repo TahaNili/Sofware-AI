@@ -124,12 +124,16 @@ class MainWindow(QMainWindow):
         model_label = QLabel("نوع مدل:")
         self.model_combo = QComboBox()
         self.model_combo.setToolTip("مدل‌های در دسترس بر اساس کلید API انتخاب می‌شوند")
-        self.update_model_list()
+        # Note: do not update the model list here because api_status
+        # widget is created below. Update models after api_status exists.
         
         # API Status indicator
         self.api_status = QLabel()
         self.api_status.setObjectName("apiStatus")
         self.update_api_status()
+
+        # Now that api_status exists, populate the model list
+        self.update_model_list()
         
         # CLI Button (right-aligned)
         self.cli_button = QPushButton("اجرا در خط فرمان")
