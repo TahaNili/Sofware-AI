@@ -6,10 +6,22 @@ An intelligent assistant for Windows OS with a graphical user interface and full
 
 - 🎯 Modern and clean GUI with RTL support
 - 🗨️ Professional chat interface with message history
-- 🧠 Advanced AI powered by OpenAI
-- 💻 Ability to control and manage the operating system
-- 🔍 Smart product search and analysis
-- 📊 System resource monitoring (CPU, RAM, Disk)
+- 🧠 Advanced AI powered by OpenAI and Google Gemini
+- 💻 Complete Windows OS Control:
+  - 🖥️ System resource monitoring (CPU, RAM, Disk usage)
+  - 📦 Automated software installation and management
+  - 🚀 Process and application control
+  - 🔍 File system navigation and management
+- 🌐 Advanced Web Integration:
+  - � Real-time product search and price comparison
+  - 📊 Market analysis and recommendations
+  - � Online shopping assistance
+  - 📱 Product reviews and specifications
+- 🤖 System Automation:
+  - ⚡ Task scheduling and automation
+  - 📥 Automated software downloads
+  - 🔄 System maintenance tasks
+  - 🎛️ Settings management
 - 🎨 Beautiful and responsive user interface
 - 🔤 Full Persian language support with optimized fonts
 
@@ -55,17 +67,30 @@ Note: You only need to set one of the API keys. The application will automatical
 
 After running the application, you can:
 
-1. **Product Search & Analysis**:
-   - "What is the price of iPhone 13?"
-   - "What is the best laptop under 20 million?"
+1. **System Control & Monitoring**:
+   - "بررسی وضعیت CPU و RAM سیستم"
+   - "اجرای فتوشاپ"
+   - "نمایش برنامه‌های در حال اجرا"
+   - "پاکسازی فایل‌های موقت"
+   - "بررسی دمای CPU"
 
-2. **System Management**:
-   - "Check CPU and RAM status"
-   - "Open Photoshop application"
+2. **Software Management**:
+   - "دانلود و نصب Chrome"
+   - "به‌روزرسانی درایورها"
+   - "حذف برنامه X"
+   - "نصب آخرین نسخه Visual Studio Code"
 
-3. **Guidance & Advice**:
-   - "Which camera do you recommend for photography?"
-   - "What is the difference between MacBook Air and Pro?"
+3. **Web & Shopping Assistant**:
+   - "بهترین لپ‌تاپ زیر 20 میلیون"
+   - "مقایسه قیمت گوشی سامسونگ S23"
+   - "بررسی نظرات کاربران درباره ایرپاد پرو"
+   - "پیدا کردن ارزان‌ترین قیمت PS5"
+
+4. **System Automation**:
+   - "زمانبندی خاموش شدن سیستم"
+   - "بکاپ‌گیری خودکار از پوشه Projects"
+   - "اجرای خودکار برنامه‌ها در استارت‌آپ"
+   - "بهینه‌سازی عملکرد سیستم"
 
 ## 🧰 Technologies
 
