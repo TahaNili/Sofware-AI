@@ -1,0 +1,5 @@
+# Isolated requirements for browser-use (keeps openai <2.0.0 for compatibility)
+browser-use==0.8.1
+openai>=1.99.2,<2.0.0
+# Add any additional packages browser-use needs here
+# Example: playwright may be required by browser-use internals, but it's managed in main requirements

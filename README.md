@@ -171,3 +171,44 @@ This project is released under the MIT License. For details, see the [LICENSE](L
    - The application will automatically use Vazir font if available
    - If not available, it will fall back to system fonts with Persian support (Tahoma, Arial, Segoe UI)
    - For best results, install Vazir font from [Vazir-Font repository](https://github.com/rastikerdar/vazir-font)
+
+## Browser-Use integration and dependency conflict
+
+Note: The `browser-use` library requires older OpenAI 1.x API (openai < 2.0.0). Many newer packages — and some parts of this project — may require OpenAI 2.x.
+
+To avoid breaking the main environment we provide an isolated environment option for browser-use. This keeps the `openai` package required by `browser-use` pinned to a compatible 1.x version while the main project can continue using OpenAI 2.x if necessary.
+
+Recommended setup (PowerShell):
+
+```powershell
+# Create an isolated virtualenv for browser-use
+python -m venv .venv-browser
+# Activate it
+.\\.venv-browser\\Scripts\\Activate.ps1
+# Install the browser-specific requirements (this pins openai to <2.0.0)
+pip install -r requirements-browser.txt
+# Install any browser drivers (Playwright) if needed:
+# playwright install
+```
+
+Using the wrapper in the repository:
+
+- The project includes `agent/ai/browser_use_wrapper.py` which runs commands inside `.venv-browser`.
+
+Example: run a browser-use command from the project root (PowerShell):
+
+```powershell
+# from repo root
+python .\\agent\\ai\\browser_use_wrapper.py -m browser_use some_command
+```
+
+Integration approaches (choose one):
+
+1. Run `browser_use_wrapper` subprocess from the main application whenever you need the browser-use features. This keeps the environments isolated and avoids dependency conflicts.
+2. If you prefer a single environment, pin `openai` in `requirements.txt` to `>=1.99.2,<2.0.0` and rework code that depends on OpenAI 2.x features.
+
+If you want, I can:
+- Create a small CLI script that talks to the wrapper via stdin/stdout or a local socket.
+- Or pin `openai` to `<2.0.0` and update the codebase to be compatible with OpenAI 1.x.
+
+Which approach would you like me to implement? (I recommend the isolated virtualenv + wrapper approach.)
