@@ -60,6 +60,7 @@ class WebAutomation:
         
     async def _search_digikala(self, query: str) -> List[Dict[str, Any]]:
         """Search Digikala for products"""
+        page = None
         try:
             if not self._context:
                 await self.initialize()
@@ -85,11 +86,12 @@ class WebAutomation:
                 }
             """)
             
-            await page.close()
             return products
         except Exception as e:
-            await page.close()
             return []
+        finally:
+            if page:
+                await page.close()
             
     async def _search_technolife(self, query: str) -> List[Dict[str, Any]]:
         """Search Technolife for products"""
