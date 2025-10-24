@@ -1,14 +1,41 @@
 """
-OpenAI client implementation for Sofware-AI
+OpenAI client implementation for Sofware-AI with async support
 """
 
 import os
-import openai
-from typing import Optional, Dict, Any
+import re
+import asyncio
+from typing import Optional, Any, Dict, Union, Mapping, TypedDict
+
+# Import OpenAI but handle both old and new SDK versions
+try:
+    # Try importing new style OpenAI SDK first
+    from openai import OpenAI, AsyncOpenAI
+    OPENAI_NEW_SDK = True
+except ImportError:
+    try:
+        # Try importing just OpenAI for newer versions without async
+        from openai import OpenAI
+        AsyncOpenAI = None
+        OPENAI_NEW_SDK = True
+    except ImportError:
+        # Fall back to old style openai package
+        import openai
+        OpenAI = AsyncOpenAI = None
+        OPENAI_NEW_SDK = False
+
 from dotenv import load_dotenv
 
+class ResponseDict(TypedDict, total=False):
+    type: str
+    error: str
+    response: str
+    search_params: Dict[str, str]
+    analysis: str
+    recommendations: list[str]
+
 class OpenAIClient:
-    """Client for interacting with OpenAI models"""
+    """Client for interacting with OpenAI models asynchronously"""
     def __init__(self):
         from utils.logger import logger
         logger.info("Initializing OpenAI client...")
@@ -24,167 +51,223 @@ class OpenAIClient:
             load_dotenv()  # Try default locations
 
         self.api_key = os.getenv("OPENAI_API_KEY")
+        self.api_base = os.getenv("OPENAI_API_BASE")  # Optional API base URL override
+        
         if not self.api_key:
             logger.error("OPENAI_API_KEY not found in environment variables after loading .env")
             raise ValueError("OPENAI_API_KEY not found in environment variables")
-        # Prefer the new OpenAI client when available (OpenAI Python SDK v1+),
-        # otherwise fall back to setting the global api_key for older versions.
+            
         try:
-            # Newer OpenAI SDK exposes an OpenAI client class; older versions use module-level api_key.
-            if hasattr(openai, "OpenAI"):
-                # initialize the new client
-                self.client = openai.OpenAI(api_key=self.api_key)
-                self.model = os.getenv("OPENAI_MODEL", "gpt-4o")
+            # Initialize client based on available SDK version
+            client_kwargs: Dict[str, Any] = {
+                "api_key": self.api_key,
+                "max_retries": 3,
+            }
+            
+            if self.api_base:
+                client_kwargs["base_url"] = self.api_base
+            
+            if AsyncOpenAI is not None:
+                # Use async client (newest SDK)
+                self.client = AsyncOpenAI(**client_kwargs)
+                self.is_async = True
+            elif OpenAI is not None:
+                # Use sync client (newer SDK)
+                self.client = OpenAI(**client_kwargs)
+                self.is_async = False
             else:
-                # fallback for older openai package
-                openai.api_key = self.api_key
-                self.client = None
-                self.model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+                # Very old SDK - use global settings
+                # We imported the old-style openai package earlier
+                if OPENAI_NEW_SDK:
+                    raise RuntimeError("OpenAI client initialization failed - incompatible SDK version")
+                else:
+                    import openai  # type: ignore
+                    openai.api_key = self.api_key
+                    if self.api_base:
+                        # Use setattr to avoid type checker complaints about old SDK
+                        setattr(openai, 'api_base', self.api_base)
+                    self.client = None
+                    self.is_async = False
+                    # Store module for later use
+                    self._openai = openai
+                
+            self.model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+            logger.info(f"OpenAI client initialized with model: {self.model}")
+            if self.api_base:
+                logger.info(f"Using custom API base: {self.api_base}")
+                
         except Exception as e:
+            logger.error(f"Failed to initialize OpenAI client: {e}")
             raise RuntimeError("Failed to initialize OpenAI client") from e
 
-    def process_request(self, prompt: str) -> Dict[str, Any]:
-        """Process a user request using OpenAI API
+    def _clean_and_localize(self, text: str, prompt: str) -> str:
+        """Clean and localize the response text.
+        
+        - Remove system messages and metadata
+        - Replace English greetings with Persian equivalents when appropriate
+        - Clean up formatting
+        """
+        if not text:
+            return ""
+
+        # Remove common system prefixes
+        text = re.sub(r"^\s*(System:|Assistant:|\[system\]|\(system\))\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"^\s*\[[^\]]+\]\s*", "", text)
+
+        # Map common English phrases to Persian
+        greetings_map = {
+            r"^Hello\b[:,.!?]*\s*": "سلام! ",
+            r"^Hi\b[:,.!?]*\s*": "سلام! ",
+            r"^Hey\b[:,.!?]*\s*": "سلام! ",
+            r"^Greetings\b[:,.!?]*\s*": "سلام! ",
+            r"How can I help you( today)?\?*$": "چطور می‌تونم کمکتون کنم؟",
+            r"How can I assist you( today)?\?*$": "چطور می‌تونم کمکتون کنم؟",
+        }
+
+        # Check if prompt contains Persian to decide on replacements
+        has_persian = bool(re.search(r"[\u0600-\u06FF]", prompt))
+
+        # Apply greeting replacements
+        if has_persian:
+            for pattern, replacement in greetings_map.items():
+                text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+        return text.strip()
+
+    async def process_request(self, prompt: str) -> ResponseDict:
+        """Process a user request using OpenAI API asynchronously.
         Args:
             prompt: User's request text
         Returns:
-            Dictionary containing the response and action type
+            A dictionary containing the response data with type information and optional fields
+            based on the type of response generated
         """
         try:
-            # Use the new OpenAI client when available, otherwise fall back to older API
-            if getattr(self, "client", None) is not None:
-                # narrow the type for the type checker and ensure client is not None
-                client = self.client
-                assert client is not None
-                response = client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-            else:
-                # older openai package
-                chat_comp = getattr(openai, "ChatCompletion", None)
-                if chat_comp is not None and hasattr(chat_comp, "create"):
-                    response = chat_comp.create(
+            response = None
+            
+            if self.client and hasattr(self.client, "chat"):
+                if self.is_async:
+                    # New SDK with async support
+                    response = await self.client.chat.completions.create(  # type: ignore
                         model=self.model,
                         messages=[{"role": "user", "content": prompt}]
                     )
                 else:
-                    # Fallback to older Completion API if ChatCompletion isn't available.
-                    # The Completion API expects a single prompt string instead of messages.
-                    completion_cls = getattr(openai, "Completion", None)
-                    if completion_cls is not None and hasattr(completion_cls, "create"):
-                        response = completion_cls.create(
+                    # New SDK sync client
+                    response = self.client.chat.completions.create(  # type: ignore
+                        model=self.model,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+            else:
+                # older openai package
+                if hasattr(self, '_openai'):
+                    chat_comp = getattr(self._openai, "ChatCompletion", None)
+                    if chat_comp is not None and hasattr(chat_comp, "create"):
+                        response = chat_comp.create(
                             model=self.model,
-                            prompt=prompt,
-                            max_tokens=150
+                            messages=[{"role": "user", "content": prompt}]
                         )
                     else:
-                        # No known completion API available on this openai package
-                        raise RuntimeError("No ChatCompletion or Completion API found in installed openai package")
+                        # Fallback to older Completion API if ChatCompletion isn't available.
+                        # The Completion API expects a single prompt string instead of messages.
+                        completion_cls = getattr(self._openai, "Completion", None)
+                        if completion_cls is not None and hasattr(completion_cls, "create"):
+                            response = completion_cls.create(
+                                model=self.model,
+                                prompt=prompt,
+                                max_tokens=150
+                            )
+                else:
+                    # No old-style openai package available
+                    raise RuntimeError("No ChatCompletion or Completion API found in installed openai package")
 
             # Extract text from different possible response shapes
             text = ""
             try:
-                choice = response.choices[0]
-                # new SDK may present message as dict or object
-                if hasattr(choice, "message"):
-                    msg = choice.message
-                    # If msg is a dict-like mapping, use dict access only
-                    if isinstance(msg, dict):
-                        content = msg.get("content")
-                        if isinstance(content, str) and content:
-                            text = content.strip()
-                        else:
-                            # try other common keys if present
-                            for k in ("content", "text"):
-                                if k in msg and isinstance(msg[k], str) and msg[k]:
-                                    text = msg[k].strip()
-                                    break
-                    else:
-                        # msg may be an object with .content attribute
-                        content = getattr(msg, "content", None)
-                        if isinstance(content, str) and content:
-                            text = content.strip()
-                        else:
-                            # content might itself be a dict-like with 'content'
-                            if isinstance(content, dict) and "content" in content and isinstance(content["content"], str):
-                                text = content["content"].strip()
-                            else:
-                                # fallback to string representation of the message object
-                                text = str(msg).strip()
+                if response is None:
+                    raise ValueError("No response received from API")
+
+                # Handle async response
+                if self.is_async and asyncio.iscoroutine(response):
+                    response_obj = await response
                 else:
-                    # try attribute 'text' safely, or inspect 'message' attribute or mapping safely
-                    content = getattr(choice, "text", None)
-                    if isinstance(content, str) and content:
-                        text = content.strip()
-                    else:
-                        # prefer attribute 'message' if present
-                        msg_attr = getattr(choice, "message", None)
-                        if isinstance(msg_attr, dict):
-                            content_val = msg_attr.get("content") or msg_attr.get("text")
-                            if isinstance(content_val, str) and content_val:
-                                text = content_val.strip()
-                            else:
-                                text = str(choice).strip()
-                        elif msg_attr is not None:
-                            # msg_attr might be an object with .content
-                            content_val = getattr(msg_attr, "content", None)
-                            if isinstance(content_val, str) and content_val:
-                                text = content_val.strip()
-                            else:
-                                text = str(msg_attr).strip() or str(choice).strip()
-                        else:
-                            # finally, if choice is a dict-like mapping use .get safely; avoid __getitem__ on unknown objects
-                            if isinstance(choice, dict):
-                                msg = choice.get("message")
-                                if isinstance(msg, dict):
-                                    content_val = msg.get("content") or msg.get("text")
-                                    if isinstance(content_val, str) and content_val:
-                                        text = content_val.strip()
-                                    else:
-                                        text = str(choice).strip()
-                                else:
-                                    # try other top-level string keys
-                                    for k in ("text", "content"):
-                                        v = choice.get(k)
-                                        if isinstance(v, str) and v:
-                                            text = v.strip()
-                                            break
-                                    else:
-                                        text = str(choice).strip()
-                            else:
-                                text = str(choice).strip()
-            except Exception:
-                # final fallback
-                text = str(response).strip()
+                    response_obj = response
+
+                # Extract choice safely handling both object and dict responses
+                if isinstance(response_obj, dict):
+                    choices = response_obj.get('choices', [])
+                    choice = choices[0] if choices else None
+                else:
+                    # Handle non-dict response object
+                    choices = getattr(response_obj, 'choices', [])
+                    choice = choices[0] if choices else None
+                
+                if choice is None:
+                    raise ValueError("No valid choices in response")
+
+                # Extract text from choice
+                if isinstance(choice, dict):
+                    # Handle dictionary response format
+                    if 'message' in choice and isinstance(choice['message'], dict):
+                        text = choice['message'].get('content', '')
+                    elif 'text' in choice:
+                        text = choice.get('text', '')
+                else:
+                    # Handle object response format
+                    if hasattr(choice, 'message'):
+                        msg = choice.message
+                        if hasattr(msg, 'content'):
+                            text = getattr(msg, 'content', '')
+                        elif isinstance(msg, dict):
+                            text = msg.get('content', '')
+                    elif hasattr(choice, 'text'):
+                        text = getattr(choice, 'text', '')
+                
+                # Ensure text is stripped
+                text = text.strip() if isinstance(text, str) else ""
+
+                # If we still don't have text, try to get a string representation
+                if not text and choice is not None:
+                    text = str(choice).strip()
+
+                if not text and response_obj is not None:
+                    text = str(response_obj).strip()
+                    
+            except Exception as e:
+                from utils.logger import logger
+                logger.error(f"Error processing response: {str(e)}")
+                text = str(response).strip() if response else ""
 
             # Simple action type detection (can be improved)
             lower_prompt = prompt.lower()
+            
+            response_dict: ResponseDict = {'type': 'general_response'}
+            
             if any(keyword in lower_prompt for keyword in ['price', 'cost', 'buy', 'purchase']):
-                return {
+                response_dict.update({
                     'type': 'product_search',
                     'search_params': {
                         'query': prompt,
                         'response': text
                     }
-                }
+                })
             elif any(keyword in lower_prompt for keyword in ['analyze', 'review', 'compare']):
-                return {
+                response_dict.update({
                     'type': 'product_analysis',
                     'analysis': text
-                }
+                })
             elif any(keyword in lower_prompt for keyword in ['recommend', 'suggest', 'alternative']):
-                return {
+                response_dict.update({
                     'type': 'recommendation',
                     'recommendations': [r.strip() for r in text.split('\n') if r.strip()]
-                }
+                })
             else:
-                return {
+                response_dict.update({
                     'type': 'general_response',
                     'response': text
-                }
+                })
+                
+            return response_dict
+            
         except Exception as e:
-            return {
-                'type': 'error',
-                'error': str(e)
-            }
+            return {'type': 'error', 'error': str(e)}
