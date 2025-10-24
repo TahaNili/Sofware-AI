@@ -84,61 +84,108 @@ class GeminiClient:
         except Exception:
             return ""
 
-    def process_request(self, prompt: str) -> Dict[str, Any]:
-        """Process a user request with Gemini and return a structured dict.
+    async def process_request(self, prompt: str) -> str:
+        """Asynchronously process a user request with Gemini and return plain text.
 
-        The return value is a dictionary containing a `type` key which
-        indicates how the UI/agent should handle the response. Possible
-        types include: `product_search`, `product_analysis`,
-        `recommendation`, `general_response` and `error`.
+        This method will:
+        - Run the (possibly blocking) SDK calls in a background thread.
+        - Extract the text portion of the response.
+        - Clean out system prefixes and common English greetings.
+        - Return a single plain string (not a structured dict) so callers that
+          expect a simple message will receive the `response` text directly.
+
+        Note: For more complex agent behavior (product_search, analysis, etc.)
+        the caller can still implement intent detection on the returned text.
         """
         try:
-            # Create model instance and generate response using multiple SDK shapes
-            raw = None
-            try:
-                # Preferred: genai.GenerativeModel (some versions); may not be present.
-                GenModel = getattr(genai, "GenerativeModel", None)
-                if GenModel:
-                    model = GenModel(self.model_name)
-                    if hasattr(model, "generate_content"):
-                        raw = model.generate_content(prompt)
+            # encapsulate the original synchronous generation logic so we can
+            # run it in a thread without blocking the event loop
+            def _sync_generate(p: str):
+                raw = None
+                try:
+                    GenModel = getattr(genai, "GenerativeModel", None)
+                    if GenModel:
+                        model = GenModel(self.model_name)
+                        if hasattr(model, "generate_content"):
+                            return model.generate_content(p)
 
-                # Fallback: genai.Client or TextGenerationClient
-                if not raw:
                     ClientClass = getattr(genai, "Client", None) or getattr(genai, "TextGenerationClient", None)
                     if ClientClass:
                         client = ClientClass()
                         if hasattr(client, "generate"):
-                            raw = client.generate(model=self.model_name, input=prompt)
-                        elif hasattr(client, "text_generation") and hasattr(client.text_generation, "generate"):
-                            raw = client.text_generation.generate(model=self.model_name, input=prompt)
+                            return client.generate(model=self.model_name, input=p)
+                        if hasattr(client, "text_generation") and hasattr(client.text_generation, "generate"):
+                            return client.text_generation.generate(model=self.model_name, input=p)
 
-                # Fallback: genai.responses.generate
-                if not raw:
                     responses = getattr(genai, "responses", None)
                     if responses and hasattr(responses, "generate"):
-                        raw = responses.generate(model=self.model_name, input=prompt)
-            except Exception:
-                raw = None
+                        return responses.generate(model=self.model_name, input=p)
+                except Exception:
+                    return None
+                return None
 
+            # Run the generator in a background thread
+            raw = await __import__('asyncio').to_thread(_sync_generate, prompt)
             if raw is None:
                 raise RuntimeError("Failed to call generation API: 'generate' method not found on google.generativeai")
 
+            # Extract text and clean/localize
             response_text = self._extract_text(raw)
+            cleaned = self._clean_and_localize(response_text, prompt)
 
-            lprompt = prompt.lower()
-            if any(k in lprompt for k in ("price", "cost", "buy", "purchase")):
-                return {
-                    "type": "product_search",
-                    "search_params": {"query": prompt, "response": response_text},
-                }
-            if any(k in lprompt for k in ("analyze", "review", "compare")):
-                return {"type": "product_analysis", "analysis": response_text}
-            if any(k in lprompt for k in ("recommend", "suggest", "alternative")):
-                recommendations = [r.strip() for r in response_text.splitlines() if r.strip()]
-                return {"type": "recommendation", "recommendations": recommendations}
+            return cleaned
 
-            return {"type": "general_response", "response": response_text}
+        except Exception as exc:
+            # Return a simple error message string (callers expect text)
+            return f"خطا: {str(exc)}"
 
-        except Exception as exc:  # pragma: no cover - runtime errors
-            return {"type": "error", "error": str(exc)}
+    def _clean_and_localize(self, text: str, prompt: str) -> str:
+        """Perform lightweight cleaning and localization of model output.
+
+        - Strip common system messages and metadata
+        - Remove or replace short English greetings with Persian equivalents
+        - Preserve the main content. Full translation is not performed here;
+          we only handle common prefixes and greetings to make output cleaner.
+        """
+        if not text:
+            return ""
+
+        # Remove common system prefixes or bracketed metadata
+        import re
+        # Remove leading 'System:' or similar labels
+        text = re.sub(r"^\s*(System:|Assistant:|\[system\]|\(system\))\s*", "", text, flags=re.IGNORECASE)
+        # Remove bracketed metadata at start
+        text = re.sub(r"^\s*\[[^\]]+\]\s*", "", text)
+
+        # Map a few common English greetings/phrases to Persian equivalents
+        greetings_map = {
+            r"^Hello\b[:,.!?]*\s*": "سلام! ",
+            r"^Hi\b[:,.!?]*\s*": "سلام! ",
+            r"^Hey\b[:,.!?]*\s*": "سلام! ",
+            r"^Greetings\b[:,.!?]*\s*": "سلام! ",
+            r"How can I help you( today)?\?*$": "چطور می‌تونم کمکتون کنم؟",
+            r"How can I assist you( today)?\?*$": "چطور می‌تونم کمکتون کنم؟",
+        }
+
+        # If the prompt contains Persian characters, prefer a Persian greeting replacement
+        prefer_persian = bool(re.search(r"[\u0600-\u06FF]", prompt))
+
+        # Apply greeting replacements at the start
+        for pattern, replacement in greetings_map.items():
+            try:
+                new_text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+                if new_text != text:
+                    text = new_text
+                    # stop after first successful greeting replacement
+                    break
+            except re.error:
+                continue
+
+        # Trim whitespace
+        text = text.strip()
+
+        # If output is still English and prompt is Persian, we can't auto-translate here;
+        # instead leave the core content but remove obvious English-only system notes.
+        # (Full translation would require an external translation API.)
+
+        return text
