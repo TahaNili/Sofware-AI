@@ -51,4 +51,23 @@ fi
 echo "🚀 Starting the modern GUI application..."
 python main.py
 
+# Setup browser-use environment if requested
+if [ "$WITH_BROWSER" == "1" ]; then
+    echo "🌐 Setting up browser-use environment..."
+    if [ -d ".venv-browser" ]; then
+        echo "Found existing .venv-browser, removing it..."
+        rm -rf .venv-browser
+    fi
+    python -m venv .venv-browser
+    source .venv-browser/bin/activate
+    python -m pip install --upgrade pip
+    pip install -r requirements-browser.txt
+    echo "✨ browser-use environment is ready"
+    # Return to main venv
+    source venv/bin/activate
+fi
+
 echo "✨ Done! Check the output above for any errors."
+if [ "$WITH_BROWSER" == "1" ]; then
+    echo "🔍 Browser automation is available in .venv-browser"
+fi

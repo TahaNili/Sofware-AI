@@ -23,9 +23,14 @@ class WebAutomation:
         
     async def initialize(self):
         """Initialize the browser instance"""
-        playwright = await async_playwright().start()
-        self._browser = await playwright.chromium.launch(headless=True)
-        self._context = await self._browser.new_context()
+        try:
+            playwright = await async_playwright().start()
+            self._browser = await playwright.chromium.launch(headless=True)
+            self._context = await self._browser.new_context()
+        except Exception as e:
+            self._browser = None
+            self._context = None
+            raise RuntimeError(f"Failed to initialize browser: {str(e)}")
         
     async def cleanup(self):
         """Clean up browser resources"""
@@ -56,6 +61,10 @@ class WebAutomation:
     async def _search_digikala(self, query: str) -> List[Dict[str, Any]]:
         """Search Digikala for products"""
         try:
+            if not self._context:
+                await self.initialize()
+            if not self._context:
+                raise Exception("Failed to initialize browser context")
             page = await self._context.new_page()
             await page.goto(f"https://www.digikala.com/search/?q={quote_plus(query)}")
             await page.wait_for_selector(".c-product-box")
@@ -78,12 +87,18 @@ class WebAutomation:
             
             await page.close()
             return products
-        except Exception:
+        except Exception as e:
+            await page.close()
             return []
             
     async def _search_technolife(self, query: str) -> List[Dict[str, Any]]:
         """Search Technolife for products"""
+        page = None
         try:
+            if not self._context:
+                await self.initialize()
+            if not self._context:
+                raise Exception("Failed to initialize browser context")
             page = await self._context.new_page()
             await page.goto(f"https://www.technolife.ir/search?query={quote_plus(query)}")
             await page.wait_for_selector(".product-box")

@@ -9,24 +9,35 @@ from typing import Dict, List, Any, Tuple
 
 class SystemMonitor:
     def __init__(self):
-        self.wmi = wmi.WMI()
+        try:
+            self.wmi = wmi.WMI()
+        except Exception:
+            self.wmi = None
         
-    def get_cpu_usage(self) -> Dict[str, float]:
+    def get_cpu_usage(self) -> Dict[str, Any]:
         """Get detailed CPU usage statistics"""
-        cpu_percent = psutil.cpu_percent(interval=1, percpu=True)
-        cpu_freq = psutil.cpu_freq()
-        cpu_temp = self._get_cpu_temperature()
-        
-        return {
-            'total_usage': psutil.cpu_percent(),
-            'per_core': cpu_percent,
-            'frequency': {
-                'current': cpu_freq.current,
-                'min': cpu_freq.min,
-                'max': cpu_freq.max
-            },
-            'temperature': cpu_temp
-        }
+        try:
+            cpu_percent = psutil.cpu_percent(interval=1, percpu=True)
+            cpu_freq = psutil.cpu_freq()
+            cpu_temp = self._get_cpu_temperature()
+            
+            return {
+                'total_usage': psutil.cpu_percent(),
+                'per_core': cpu_percent,
+                'frequency': {
+                    'current': cpu_freq.current if cpu_freq else 0.0,
+                    'min': cpu_freq.min if cpu_freq else 0.0,
+                    'max': cpu_freq.max if cpu_freq else 0.0
+                },
+                'temperature': cpu_temp
+            }
+        except Exception:
+            return {
+                'total_usage': 0.0,
+                'per_core': [],
+                'frequency': {'current': 0.0, 'min': 0.0, 'max': 0.0},
+                'temperature': {}
+            }
         
     def get_memory_info(self) -> Dict[str, Any]:
         """Get RAM usage statistics"""
@@ -68,24 +79,49 @@ class SystemMonitor:
     def get_running_processes(self) -> List[Dict[str, Any]]:
         """Get list of running processes with resource usage"""
         processes = []
-        for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent']):
-            try:
-                pinfo = proc.info
-                pinfo['cpu_percent'] = proc.cpu_percent()
-                pinfo['memory_percent'] = proc.memory_percent()
-                processes.append(pinfo)
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent']):
+                try:
+                    pinfo = proc.info
+                    # Avoid potential division by zero or invalid memory calculations
+                    try:
+                        pinfo['cpu_percent'] = proc.cpu_percent()
+                    except Exception:
+                        pinfo['cpu_percent'] = 0.0
+                        
+                    try:
+                        pinfo['memory_percent'] = proc.memory_percent()
+                    except Exception:
+                        pinfo['memory_percent'] = 0.0
+                        
+                    processes.append(pinfo)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+        except Exception:
+            # Return empty list if process iteration fails completely
+            return []
         return processes
         
     def _get_cpu_temperature(self) -> Dict[str, float]:
         """Get CPU temperature information"""
+        if not self.wmi:
+            return {}
+            
         try:
             temperatures = {}
-            for item in self.wmi.MSAcpi_ThermalZoneTemperature():
-                # Convert tenths of Kelvin to Celsius
-                temp_celsius = (item.CurrentTemperature / 10.0) - 273.15
-                temperatures[f'zone_{item.InstanceName}'] = temp_celsius
+            temp_query = self.wmi.MSAcpi_ThermalZoneTemperature()
+            
+            if not temp_query:
+                return {}
+                
+            for item in temp_query:
+                try:
+                    # Convert tenths of Kelvin to Celsius
+                    temp_celsius = (item.CurrentTemperature / 10.0) - 273.15
+                    temperatures[f'zone_{item.InstanceName}'] = temp_celsius
+                except (AttributeError, TypeError, ZeroDivisionError):
+                    continue
+                    
             return temperatures
         except Exception:
             return {}

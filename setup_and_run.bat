@@ -1,4 +1,12 @@
 @echo off
+setlocal enabledelayedexpansion
+
+:: Parse command line arguments
+set WITH_BROWSER=0
+for %%a in (%*) do (
+    if "%%a"=="--with-browser" set WITH_BROWSER=1
+)
+
 echo 🚀 Starting setup and installation process...
 
 :: Check Python installation
@@ -46,5 +54,24 @@ if not exist .env (
 echo 🚀 Starting the modern GUI application...
 python main.py
 
+:: Setup browser-use environment if requested
+if !WITH_BROWSER!==1 (
+    echo 🌐 Setting up browser-use environment...
+    if exist .venv-browser (
+        echo Found existing .venv-browser, removing it...
+        rmdir /s /q .venv-browser
+    )
+    python -m venv .venv-browser
+    call .venv-browser\Scripts\activate.bat
+    python -m pip install --upgrade pip
+    pip install -r requirements-browser.txt
+    echo ✨ browser-use environment is ready
+    :: Return to main venv
+    call venv\Scripts\activate.bat
+)
+
 echo ✨ Done! Check the output above for any errors.
+if !WITH_BROWSER!==1 (
+    echo 🔍 Browser automation is available in .venv-browser
+)
 pause
