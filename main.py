@@ -1,103 +1,108 @@
-"""
-Main entry point for the AI-powered software assistant application.
-Initializes the GUI and backend components and starts the application.
+
+"""Project entrypoint: choose GUI (PySide6) or CLI fallback.
+
+This launcher loads environment variables (if python-dotenv is available),
+initializes the AI factory and either starts the Qt GUI or the console CLI
+based on availability and command-line flags.
+
+It prefers GUI when PySide6 is installed and the user hasn't requested CLI.
+If GUI fails to start, it falls back to the CLI mode.
 """
 
-import sys
 import os
+import sys
+import argparse
 import asyncio
-from PySide6.QtWidgets import QApplication
-from dotenv import load_dotenv
+from typing import Optional
 
-from ui.main_window import MainWindow
-from agent.ai.factory import AIFactory
-from agent.cli import main as cli_main
 from utils.logger import logger
+from agent.ai.factory import AIFactory
 
-def check_environment():
-    """Check if environment variables are properly loaded"""
-    # Try to load .env from the current directory
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    env_path = os.path.join(current_dir, '.env')
-    
-    logger.info(f"Checking .env file at: {env_path}")
-    if os.path.exists(env_path):
-        try:
-            # Check if file is readable
-            with open(env_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                logger.info(f".env file found and readable, size: {len(content)} bytes")
-                if "GOOGLE_API_KEY" not in content and "OPENAI_API_KEY" not in content:
-                    logger.warning("Warning: .env file exists but does not contain API key definitions")
-        except Exception as e:
-            logger.error(f"Error reading .env file: {str(e)}")
-        
-        # Try to load the environment variables
-        load_dotenv(env_path)
-    else:
-        logger.warning(f"No .env file found at {env_path}")
-        # Try parent directory as fallback
-        parent_env = os.path.join(os.path.dirname(current_dir), '.env')
-        if os.path.exists(parent_env):
-            logger.info(f"Found .env in parent directory: {parent_env}")
-            load_dotenv(parent_env)
-    
-    # Check environment variables
-    google_key = os.getenv('GOOGLE_API_KEY')
-    openai_key = os.getenv('OPENAI_API_KEY')
-    
-    logger.info("----- Environment Check -----")
-    logger.info(f"GOOGLE_API_KEY: {'Present' if google_key else 'Missing'}")
-    if google_key:
-        logger.info(f"GOOGLE_API_KEY length: {len(google_key)} chars")
-    logger.info(f"OPENAI_API_KEY: {'Present' if openai_key else 'Missing'}")
-    if openai_key:
-        logger.info(f"OPENAI_API_KEY length: {len(openai_key)} chars")
-    logger.info("---------------------------")
 
-def run_gui_mode():
-    """Start the application in GUI mode with the modern chat interface"""
-    try:
-        # Initialize Qt application
-        app = QApplication(sys.argv)
-        
-        # Create AI factory for handling requests
-        agent_factory = AIFactory
-        
-        # Create and show the main window
-        window = MainWindow(agent_factory)
-        window.show()
-        
-        # Start the Qt event loop
-        sys.exit(app.exec())
-        
-    except Exception as e:
-        logger.error(f"Error starting GUI mode: {str(e)}")
-        sys.exit(1)
+def load_dotenv_if_present() -> None:
+	try:
+		from dotenv import load_dotenv
+		load_dotenv()
+		logger.info("Loaded .env file (if present)")
+	except Exception:
+		logger.debug("python-dotenv not available or .env missing; skipping load")
 
-def run_cli_mode():
-    """Start the application in command-line interface mode"""
-    try:
-        # Run the CLI main function
-        asyncio.run(cli_main())
-    except Exception as e:
-        logger.error(f"Error starting CLI mode: {str(e)}")
-        sys.exit(1)
+
+async def run_cli() -> int:
+	"""Run the console-based CLI (agent.cli.main). Returns exit code."""
+	try:
+		# agent.cli exposes an async main() function
+		import agent.cli as cli_mod
+		if hasattr(cli_mod, "main"):
+			return await cli_mod.main()
+
+		# As a fallback, execute as a module subprocess
+		proc = await asyncio.create_subprocess_exec(sys.executable, "-m", "agent.cli")
+		await proc.wait()
+		return proc.returncode or 0
+	except Exception as e:
+		logger.exception("Failed to run CLI mode: %s", e)
+		return 1
+
+
+def run_gui(argv: Optional[list] = None) -> int:
+	"""Run the PySide6 GUI. Raises if PySide6 is not installed or GUI init fails."""
+	argv = argv if argv is not None else sys.argv
+	try:
+		from PySide6.QtWidgets import QApplication
+	except Exception as e:
+		logger.debug("PySide6 not available: %s", e)
+		raise
+
+	try:
+		from ui.main_window import MainWindow
+	except Exception as e:
+		logger.exception("Failed to import UI components: %s", e)
+		raise
+
+	app = QApplication(argv)
+	factory = AIFactory()
+	window = MainWindow(factory)
+	window.show()
+	# Return the Qt application exit code
+	return app.exec()
+
+
+def parse_args(argv: Optional[list] = None) -> argparse.Namespace:
+	p = argparse.ArgumentParser(prog="Sofware-AI", description="Sofware-AI launcher")
+	p.add_argument("--cli", action="store_true", help="Run in console CLI mode")
+	p.add_argument("--no-gui", action="store_true", help="Do not attempt to start GUI")
+	p.add_argument("--debug", action="store_true", help="Enable debug logging")
+	return p.parse_args(argv)
+
+
+def main(argv: Optional[list] = None) -> int:
+	argv = argv if argv is not None else sys.argv[1:]
+	args = parse_args(argv)
+
+	if args.debug:
+		logger.setLevel("DEBUG")
+
+	load_dotenv_if_present()
+
+	# If user explicitly requested CLI, run it
+	if args.cli or args.no_gui:
+		logger.info("Starting in CLI mode")
+		return asyncio.run(run_cli())
+
+	# Prefer GUI when available, otherwise fall back to CLI
+	try:
+		logger.info("Attempting to start GUI mode")
+		return run_gui([sys.argv[0]] + list(argv))
+	except Exception as e:
+		logger.warning("GUI unavailable or failed to start (%s). Falling back to CLI.", e)
+		return asyncio.run(run_cli())
+
 
 if __name__ == "__main__":
-    # Log application startup and check environment
-    logger.info("Starting AI Software Assistant")
-    check_environment()
-    
-    # Determine whether to run in GUI or CLI mode
-    # Can be extended to handle command line arguments
-    try:
-        # Try to force reload of environment variables
-        load_dotenv(override=True)
-        
-        # Default to GUI mode
-        run_gui_mode()
-    except ImportError:
-        # Fallback to CLI mode if GUI dependencies are not available
-        logger.warning("GUI dependencies not found. Falling back to CLI mode...")
-        run_cli_mode()
+	try:
+		exit_code = main()
+	except Exception as e:
+		logger.exception("Unhandled error in launcher: %s", e)
+		exit_code = 1
+	sys.exit(exit_code)

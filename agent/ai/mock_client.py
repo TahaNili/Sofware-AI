@@ -10,5 +10,5 @@ class MockClient:
 
     async def process_request(self, prompt: str) -> Dict[str, Any]:
         # Return a predictable response for testing
-        text = f"(MOCK RESPONSE) You asked: {prompt}"
+        text = f"{prompt}"
         return {"type": "general_response", "response": text}
